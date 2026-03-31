@@ -1,6 +1,15 @@
+import { useState } from 'react'
 import SectionCard, { ConfidenceBadge } from './SectionCard'
 
+const tabs = [
+  { id: 'overview', label: 'Overview' },
+  { id: 'pain-points', label: 'Pain Points' },
+  { id: 'outreach', label: 'Outreach' },
+]
+
 function OnePager({ data }) {
+  const [activeTab, setActiveTab] = useState('overview')
+
   if (!data) return null
 
   // Handle raw response if parsing failed
@@ -56,148 +65,191 @@ Tech Stack: ${company_snapshot.tech_stack_signals?.join(', ') || 'N/A'}`
   }
 
   return (
-    <div className="space-y-6">
-      {/* Company Snapshot */}
-      {company_snapshot && (
-        <SectionCard title="Company Snapshot" copyText={formatSnapshotForCopy()}>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <p className="text-sm text-gray-500">Company</p>
-              <p className="font-medium text-gray-900">{company_snapshot.name}</p>
-            </div>
-            <div>
-              <p className="text-sm text-gray-500">Industry</p>
-              <p className="font-medium text-gray-900">{company_snapshot.industry || 'N/A'}</p>
-            </div>
-            <div>
-              <p className="text-sm text-gray-500">Headquarters</p>
-              <p className="font-medium text-gray-900">{company_snapshot.hq || 'N/A'}</p>
-            </div>
-            <div>
-              <p className="text-sm text-gray-500">Company Size</p>
-              <p className="font-medium text-gray-900">{company_snapshot.size || 'N/A'}</p>
-            </div>
-            <div>
-              <p className="text-sm text-gray-500">Funding Stage</p>
-              <p className="font-medium text-gray-900">{company_snapshot.funding_stage || 'N/A'}</p>
-            </div>
-            <div>
-              <p className="text-sm text-gray-500">Tech Stack Signals</p>
-              <div className="flex flex-wrap gap-1 mt-1">
-                {company_snapshot.tech_stack_signals?.length > 0 ? (
-                  company_snapshot.tech_stack_signals.map((tech, i) => (
-                    <span key={i} className="px-2 py-0.5 bg-blue-50 text-blue-700 text-xs rounded">
-                      {tech}
-                    </span>
-                  ))
-                ) : (
-                  <span className="text-gray-500">N/A</span>
-                )}
-              </div>
-            </div>
-          </div>
-        </SectionCard>
-      )}
+    <div>
+      {/* Tab Navigation */}
+      <div className="border-b border-gray-200 mb-6">
+        <nav className="flex space-x-8">
+          {tabs.map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`py-3 px-1 border-b-2 font-medium text-sm transition-colors ${
+                activeTab === tab.id
+                  ? 'border-blue-600 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </nav>
+      </div>
 
-      {/* Pain Points */}
-      {pain_points?.length > 0 && (
-        <SectionCard title="Pain Points" copyText={formatPainPointsForCopy()}>
-          <ul className="space-y-3">
-            {pain_points.map((point, i) => (
-              <li key={i} className="flex items-start space-x-3">
-                <span className="flex-shrink-0 w-6 h-6 bg-red-100 text-red-600 rounded-full flex items-center justify-center text-sm font-medium">
-                  {i + 1}
-                </span>
-                <div className="flex-1">
-                  <div className="flex items-center space-x-2 mb-1">
-                    <p className="font-medium text-gray-900">{point.point}</p>
-                    <ConfidenceBadge source={point.source} />
+      {/* Tab Content */}
+      <div className="space-y-6">
+        {/* Overview Tab */}
+        {activeTab === 'overview' && (
+          <>
+            {company_snapshot && (
+              <SectionCard title="Company Snapshot" copyText={formatSnapshotForCopy()}>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-sm text-gray-500">Company</p>
+                    <p className="font-medium text-gray-900">{company_snapshot.name}</p>
                   </div>
-                  {point.evidence && (
-                    <p className="text-sm text-gray-600">{point.evidence}</p>
-                  )}
-                </div>
-              </li>
-            ))}
-          </ul>
-        </SectionCard>
-      )}
-
-      {/* Outreach Angles */}
-      {outreach_angles?.length > 0 && (
-        <SectionCard title="Outreach Angles" copyText={formatOutreachAnglesForCopy()}>
-          <div className="space-y-4">
-            {outreach_angles.map((angle, i) => (
-              <div key={i} className="p-4 bg-green-50 rounded-lg">
-                <p className="font-medium text-green-900 mb-1">"{angle.hook}"</p>
-                <p className="text-sm text-green-700">{angle.reasoning}</p>
-              </div>
-            ))}
-          </div>
-        </SectionCard>
-      )}
-
-      {/* Objections & Rebuttals */}
-      {objections?.length > 0 && (
-        <SectionCard title="Objections & Rebuttals" copyText={formatObjectionsForCopy()}>
-          <div className="space-y-4">
-            {objections.map((obj, i) => (
-              <div key={i} className="border-l-4 border-orange-400 pl-4">
-                <p className="font-medium text-gray-900 mb-1">
-                  <span className="text-orange-600">Objection:</span> {obj.objection}
-                </p>
-                <p className="text-sm text-gray-700">
-                  <span className="font-medium text-green-600">Rebuttal:</span> {obj.rebuttal}
-                </p>
-              </div>
-            ))}
-          </div>
-        </SectionCard>
-      )}
-
-      {/* Recent Signals */}
-      {signals?.length > 0 && (
-        <SectionCard title="Recent Signals" copyText={formatSignalsForCopy()}>
-          <ul className="space-y-3">
-            {signals.map((signal, i) => (
-              <li key={i} className="flex items-start space-x-3">
-                <span className="flex-shrink-0 w-2 h-2 mt-2 bg-purple-500 rounded-full"></span>
-                <div>
-                  <p className="font-medium text-gray-900">{signal.signal}</p>
-                  <div className="flex items-center space-x-2 mt-1">
-                    {signal.date && (
-                      <span className="text-xs text-gray-500">{signal.date}</span>
-                    )}
-                    {signal.relevance && (
-                      <span className="text-xs text-purple-600">{signal.relevance}</span>
-                    )}
+                  <div>
+                    <p className="text-sm text-gray-500">Industry</p>
+                    <p className="font-medium text-gray-900">{company_snapshot.industry || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-500">Headquarters</p>
+                    <p className="font-medium text-gray-900">{company_snapshot.hq || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-500">Company Size</p>
+                    <p className="font-medium text-gray-900">{company_snapshot.size || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-500">Funding Stage</p>
+                    <p className="font-medium text-gray-900">{company_snapshot.funding_stage || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-500">Tech Stack Signals</p>
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      {company_snapshot.tech_stack_signals?.length > 0 ? (
+                        company_snapshot.tech_stack_signals.map((tech, i) => (
+                          <span key={i} className="px-2 py-0.5 bg-blue-50 text-blue-700 text-xs rounded">
+                            {tech}
+                          </span>
+                        ))
+                      ) : (
+                        <span className="text-gray-500">N/A</span>
+                      )}
+                    </div>
                   </div>
                 </div>
-              </li>
-            ))}
-          </ul>
-        </SectionCard>
-      )}
+              </SectionCard>
+            )}
 
-      {/* Draft Email */}
-      {draft_email && (
-        <SectionCard title="Draft Outreach Email" copyText={formatEmailForCopy()}>
-          <div className="space-y-4">
-            <div>
-              <p className="text-sm text-gray-500 mb-1">Subject Line</p>
-              <p className="font-medium text-gray-900 bg-gray-50 px-3 py-2 rounded">
-                {draft_email.subject}
-              </p>
-            </div>
-            <div>
-              <p className="text-sm text-gray-500 mb-1">Email Body</p>
-              <div className="bg-gray-50 px-4 py-3 rounded whitespace-pre-wrap text-gray-800 text-sm">
-                {draft_email.body}
-              </div>
-            </div>
-          </div>
-        </SectionCard>
-      )}
+            {signals?.length > 0 && (
+              <SectionCard title="Recent Signals" copyText={formatSignalsForCopy()}>
+                <ul className="space-y-3">
+                  {signals.map((signal, i) => (
+                    <li key={i} className="flex items-start space-x-3">
+                      <span className="flex-shrink-0 w-2 h-2 mt-2 bg-purple-500 rounded-full"></span>
+                      <div>
+                        <p className="font-medium text-gray-900">{signal.signal}</p>
+                        <div className="flex items-center space-x-2 mt-1">
+                          {signal.date && (
+                            <span className="text-xs text-gray-500">{signal.date}</span>
+                          )}
+                          {signal.relevance && (
+                            <span className="text-xs text-purple-600">{signal.relevance}</span>
+                          )}
+                        </div>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </SectionCard>
+            )}
+
+            {!company_snapshot && !signals?.length && (
+              <p className="text-gray-500 text-center py-8">No overview data available</p>
+            )}
+          </>
+        )}
+
+        {/* Pain Points Tab */}
+        {activeTab === 'pain-points' && (
+          <>
+            {pain_points?.length > 0 && (
+              <SectionCard title="Pain Points" copyText={formatPainPointsForCopy()}>
+                <ul className="space-y-3">
+                  {pain_points.map((point, i) => (
+                    <li key={i} className="flex items-start space-x-3">
+                      <span className="flex-shrink-0 w-6 h-6 bg-red-100 text-red-600 rounded-full flex items-center justify-center text-sm font-medium">
+                        {i + 1}
+                      </span>
+                      <div className="flex-1">
+                        <div className="flex items-center space-x-2 mb-1">
+                          <p className="font-medium text-gray-900">{point.point}</p>
+                          <ConfidenceBadge source={point.source} />
+                        </div>
+                        {point.evidence && (
+                          <p className="text-sm text-gray-600">{point.evidence}</p>
+                        )}
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </SectionCard>
+            )}
+
+            {objections?.length > 0 && (
+              <SectionCard title="Objections & Rebuttals" copyText={formatObjectionsForCopy()}>
+                <div className="space-y-4">
+                  {objections.map((obj, i) => (
+                    <div key={i} className="border-l-4 border-orange-400 pl-4">
+                      <p className="font-medium text-gray-900 mb-1">
+                        <span className="text-orange-600">Objection:</span> {obj.objection}
+                      </p>
+                      <p className="text-sm text-gray-700">
+                        <span className="font-medium text-green-600">Rebuttal:</span> {obj.rebuttal}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </SectionCard>
+            )}
+
+            {!pain_points?.length && !objections?.length && (
+              <p className="text-gray-500 text-center py-8">No pain points data available</p>
+            )}
+          </>
+        )}
+
+        {/* Outreach Tab */}
+        {activeTab === 'outreach' && (
+          <>
+            {outreach_angles?.length > 0 && (
+              <SectionCard title="Outreach Angles" copyText={formatOutreachAnglesForCopy()}>
+                <div className="space-y-4">
+                  {outreach_angles.map((angle, i) => (
+                    <div key={i} className="p-4 bg-green-50 rounded-lg">
+                      <p className="font-medium text-green-900 mb-1">"{angle.hook}"</p>
+                      <p className="text-sm text-green-700">{angle.reasoning}</p>
+                    </div>
+                  ))}
+                </div>
+              </SectionCard>
+            )}
+
+            {draft_email && (
+              <SectionCard title="Draft Outreach Email" copyText={formatEmailForCopy()}>
+                <div className="space-y-4">
+                  <div>
+                    <p className="text-sm text-gray-500 mb-1">Subject Line</p>
+                    <p className="font-medium text-gray-900 bg-gray-50 px-3 py-2 rounded">
+                      {draft_email.subject}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-500 mb-1">Email Body</p>
+                    <div className="bg-gray-50 px-4 py-3 rounded whitespace-pre-wrap text-gray-800 text-sm">
+                      {draft_email.body}
+                    </div>
+                  </div>
+                </div>
+              </SectionCard>
+            )}
+
+            {!outreach_angles?.length && !draft_email && (
+              <p className="text-gray-500 text-center py-8">No outreach data available</p>
+            )}
+          </>
+        )}
+      </div>
     </div>
   )
 }

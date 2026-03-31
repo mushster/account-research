@@ -25,21 +25,17 @@ async def scrape_website(url: str) -> Optional[dict]:
         return None
 
     try:
-        from firecrawl import FirecrawlApp
+        from firecrawl import V1FirecrawlApp
 
         log.info(f"Scraping website | url={url}")
-        app = FirecrawlApp(api_key=api_key)
+        app = V1FirecrawlApp(api_key=api_key)
 
         # Scrape the URL and get markdown content
-        result = app.scrape_url(url, params={
-            'formats': ['markdown'],
-            'onlyMainContent': True
-        })
+        result = app.scrape_url(url, formats=['markdown'], only_main_content=True)
 
-        if result and result.get('markdown'):
-            content = result.get('markdown', '')
-            metadata = result.get('metadata', {})
-            title = metadata.get('title', 'Company Website')
+        if result and result.markdown:
+            content = result.markdown
+            title = result.title or 'Company Website'
 
             log.info(f"Website scraped | url={url} | chars={len(content)} | title={title}")
 
@@ -47,7 +43,7 @@ async def scrape_website(url: str) -> Optional[dict]:
                 "url": url,
                 "title": title,
                 "content": content,
-                "metadata": metadata
+                "metadata": dict(result.metadata) if result.metadata else {}
             }
         else:
             log.warning(f"No content returned from Firecrawl | url={url}")
@@ -78,21 +74,17 @@ async def scrape_linkedin(url: str) -> Optional[dict]:
         return None
 
     try:
-        from firecrawl import FirecrawlApp
+        from firecrawl import V1FirecrawlApp
 
         log.info(f"Scraping LinkedIn | url={url}")
-        app = FirecrawlApp(api_key=api_key)
+        app = V1FirecrawlApp(api_key=api_key)
 
         # Scrape LinkedIn profile
-        result = app.scrape_url(url, params={
-            'formats': ['markdown'],
-            'onlyMainContent': True
-        })
+        result = app.scrape_url(url, formats=['markdown'], only_main_content=True)
 
-        if result and result.get('markdown'):
-            content = result.get('markdown', '')
-            metadata = result.get('metadata', {})
-            title = metadata.get('title', 'LinkedIn Profile')
+        if result and result.markdown:
+            content = result.markdown
+            title = result.title or 'LinkedIn Profile'
 
             log.info(f"LinkedIn scraped | url={url} | chars={len(content)} | title={title}")
 
@@ -100,7 +92,7 @@ async def scrape_linkedin(url: str) -> Optional[dict]:
                 "url": url,
                 "title": title,
                 "content": content,
-                "metadata": metadata
+                "metadata": dict(result.metadata) if result.metadata else {}
             }
         else:
             log.warning(f"No content returned from Firecrawl | url={url}")
