@@ -1,5 +1,8 @@
 """FastAPI application for Account Research Co-Pilot."""
 
+from dotenv import load_dotenv
+load_dotenv()
+
 import json
 from typing import Optional
 
