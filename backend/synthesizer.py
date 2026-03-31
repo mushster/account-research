@@ -64,12 +64,21 @@ Guidelines:
 """
 
 
-async def synthesize_one_pager(context: str) -> AsyncGenerator[str, None]:
+class SynthesisResult:
+    """Container for synthesis result with token usage."""
+    def __init__(self):
+        self.input_tokens = 0
+        self.output_tokens = 0
+        self.cost = 0.0
+
+
+async def synthesize_one_pager(context: str, result: SynthesisResult = None) -> AsyncGenerator[str, None]:
     """
     Generate a one-pager using Claude API with streaming.
 
     Args:
         context: Combined context from all sources (website, LinkedIn, PDF, news)
+        result: Optional SynthesisResult to store token usage
 
     Yields:
         JSON string chunks as they're generated
@@ -95,7 +104,7 @@ Generate the JSON response now:"""
             full_response += text
             yield text
 
-    # Log token usage after completion
+    # Get token usage after completion
     response = stream.get_final_message()
     input_tokens = response.usage.input_tokens
     output_tokens = response.usage.output_tokens
@@ -104,6 +113,12 @@ Generate the JSON response now:"""
     input_cost = (input_tokens / 1_000_000) * 3.00
     output_cost = (output_tokens / 1_000_000) * 15.00
     total_cost = input_cost + output_cost
+
+    # Store in result object if provided
+    if result:
+        result.input_tokens = input_tokens
+        result.output_tokens = output_tokens
+        result.cost = total_cost
 
     print(f"[Synthesizer] Tokens - Input: {input_tokens}, Output: {output_tokens}")
     print(f"[Synthesizer] Cost: ${total_cost:.4f}")

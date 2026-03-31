@@ -9,12 +9,18 @@ function App() {
   const [steps, setSteps] = useState([])
   const [result, setResult] = useState(null)
   const [error, setError] = useState(null)
+  const [streamingText, setStreamingText] = useState('')
+  const [tokenCount, setTokenCount] = useState(0)
+  const [tokenInfo, setTokenInfo] = useState(null)
 
   const handleSubmit = async (formData) => {
     setLoading(true)
     setSteps([])
     setResult(null)
     setError(null)
+    setStreamingText('')
+    setTokenCount(0)
+    setTokenInfo(null)
 
     try {
       await postResearch(formData, {
@@ -30,8 +36,16 @@ function App() {
             return newSteps
           })
         },
+        onChunk: (text) => {
+          setStreamingText((prev) => prev + text)
+          // Rough token estimate (1 token ≈ 4 chars)
+          setTokenCount((prev) => prev + Math.ceil(text.length / 4))
+        },
         onComplete: (data) => {
-          setResult(data)
+          setResult(data.data || data)
+          if (data.tokens) {
+            setTokenInfo(data.tokens)
+          }
           setLoading(false)
         },
         onError: (err) => {
@@ -49,6 +63,9 @@ function App() {
     setResult(null)
     setSteps([])
     setError(null)
+    setStreamingText('')
+    setTokenCount(0)
+    setTokenInfo(null)
   }
 
   return (
@@ -69,7 +86,11 @@ function App() {
 
             {loading && (
               <div className="mt-8">
-                <LoadingSteps steps={steps} />
+                <LoadingSteps
+                  steps={steps}
+                  streamingText={streamingText}
+                  tokenCount={tokenCount}
+                />
               </div>
             )}
 
@@ -82,9 +103,16 @@ function App() {
         ) : (
           <>
             <div className="mb-6 flex justify-between items-center">
-              <h2 className="text-xl font-semibold text-gray-800">
-                Research Results
-              </h2>
+              <div>
+                <h2 className="text-xl font-semibold text-gray-800">
+                  Research Results
+                </h2>
+                {tokenInfo && (
+                  <p className="text-sm text-gray-500 mt-1">
+                    {tokenInfo.input?.toLocaleString()} input + {tokenInfo.output?.toLocaleString()} output tokens = ${tokenInfo.cost}
+                  </p>
+                )}
+              </div>
               <button
                 onClick={handleReset}
                 className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"

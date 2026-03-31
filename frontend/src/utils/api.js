@@ -6,10 +6,11 @@ const API_BASE_URL = 'http://localhost:8000'
  * @param {FormData} formData - Form data with research inputs
  * @param {Object} callbacks - Callback functions for SSE events
  * @param {Function} callbacks.onStatus - Called on status updates
+ * @param {Function} callbacks.onChunk - Called on streaming text chunks
  * @param {Function} callbacks.onComplete - Called when research is complete
  * @param {Function} callbacks.onError - Called on errors
  */
-export async function postResearch(formData, { onStatus, onComplete, onError }) {
+export async function postResearch(formData, { onStatus, onChunk, onComplete, onError }) {
   try {
     const response = await fetch(`${API_BASE_URL}/research`, {
       method: 'POST',
@@ -53,14 +54,16 @@ export async function postResearch(formData, { onStatus, onComplete, onError }) 
               case 'status':
                 onStatus?.(data)
                 break
+              case 'chunk':
+                // Streaming text chunks from AI
+                onChunk?.(data.text || '')
+                break
               case 'complete':
-                onComplete?.(data.data || data)
+                // Pass full data including tokens
+                onComplete?.(data)
                 break
               case 'error':
                 onError?.(new Error(data.message || 'Unknown error'))
-                break
-              case 'chunk':
-                // Streaming text chunks - can be used for real-time display
                 break
             }
           } catch (parseError) {

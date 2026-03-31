@@ -12,7 +12,7 @@ from models import ResearchRequest, SSEEvent
 from scraper import scrape_website, scrape_linkedin
 from pdf_parser import parse_pdf
 from enrichment import fetch_news
-from synthesizer import synthesize_one_pager, parse_one_pager_response
+from synthesizer import synthesize_one_pager, parse_one_pager_response, SynthesisResult
 from utils import validate_url, validate_linkedin_url, extract_company_name_from_url, truncate_text
 
 
@@ -153,18 +153,34 @@ async def research(
             yield format_sse("status", {"step": 5, "message": "Generating one-pager with AI..."})
 
             full_response = ""
-            async for chunk in synthesize_one_pager(full_context):
+            synthesis_result = SynthesisResult()
+            async for chunk in synthesize_one_pager(full_context, synthesis_result):
                 full_response += chunk
                 yield format_sse("chunk", {"text": chunk})
 
             # Parse and validate the response
             try:
                 one_pager = parse_one_pager_response(full_response)
-                yield format_sse("complete", {"data": one_pager.model_dump()})
+                yield format_sse("complete", {
+                    "data": one_pager.model_dump(),
+                    "tokens": {
+                        "input": synthesis_result.input_tokens,
+                        "output": synthesis_result.output_tokens,
+                        "cost": round(synthesis_result.cost, 4)
+                    }
+                })
             except Exception as e:
                 print(f"[Main] Error parsing response: {e}")
                 # Return raw response if parsing fails
-                yield format_sse("complete", {"raw": full_response, "parse_error": str(e)})
+                yield format_sse("complete", {
+                    "raw": full_response,
+                    "parse_error": str(e),
+                    "tokens": {
+                        "input": synthesis_result.input_tokens,
+                        "output": synthesis_result.output_tokens,
+                        "cost": round(synthesis_result.cost, 4)
+                    }
+                })
 
         except Exception as e:
             print(f"[Main] Error in pipeline: {e}")
