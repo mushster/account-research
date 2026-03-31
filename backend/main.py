@@ -1,10 +1,9 @@
 """FastAPI application for Account Research Co-Pilot."""
 
-import asyncio
 import json
 from typing import Optional
 
-from fastapi import FastAPI, File, Form, HTTPException, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 
@@ -14,7 +13,9 @@ from pdf_parser import parse_pdf
 from enrichment import fetch_news
 from synthesizer import synthesize_one_pager, parse_one_pager_response, SynthesisResult
 from utils import validate_url, validate_linkedin_url, extract_company_name_from_url, truncate_text
+from logger import get_logger, generate_request_id, set_request_id
 
+log = get_logger("main")
 
 app = FastAPI(
     title="Account Research Co-Pilot",
@@ -45,6 +46,7 @@ async def health_check():
 
 @app.post("/research")
 async def research(
+    request: Request,
     company_url: Optional[str] = Form(None),
     linkedin_url: Optional[str] = Form(None),
     company_name: Optional[str] = Form(None),
@@ -61,6 +63,12 @@ async def research(
 
     Returns Server-Sent Events stream with progress updates and final result.
     """
+    # Generate request ID for tracing
+    req_id = generate_request_id()
+    set_request_id(req_id)
+
+    log.info(f"New research request | company_url={company_url} | linkedin_url={linkedin_url} | company_name={company_name} | pdf={pdf_file.filename if pdf_file else None}")
+
     # Validate at least one input provided
     has_input = any([
         company_url,
@@ -70,6 +78,7 @@ async def research(
     ])
 
     if not has_input:
+        log.warning("Request rejected: no inputs provided")
         raise HTTPException(
             status_code=400,
             detail="At least one input (company URL, LinkedIn URL, company name, or PDF) is required"
@@ -77,9 +86,11 @@ async def research(
 
     # Validate URLs if provided
     if company_url and not validate_url(company_url):
+        log.warning(f"Invalid company URL: {company_url}")
         raise HTTPException(status_code=400, detail="Invalid company URL format")
 
     if linkedin_url and not validate_linkedin_url(linkedin_url):
+        log.warning(f"Invalid LinkedIn URL: {linkedin_url}")
         raise HTTPException(status_code=400, detail="Invalid LinkedIn URL format")
 
     async def event_generator():
@@ -88,6 +99,7 @@ async def research(
 
         try:
             # Step 1: Scrape website
+            log.debug("Step 1: Scraping website")
             yield format_sse("status", {"step": 1, "message": "Scraping company website..."})
 
             if company_url:
@@ -96,22 +108,26 @@ async def research(
                     context_parts.append(f"## Website Content\n{website_data.get('content', '')}")
                     if not effective_company_name:
                         effective_company_name = extract_company_name_from_url(company_url)
+                log.info(f"Website scraped | url={company_url} | success={bool(website_data)}")
                 yield format_sse("status", {"step": 1, "message": "Website scraped", "complete": True})
             else:
                 yield format_sse("status", {"step": 1, "message": "No website URL provided", "skipped": True})
 
             # Step 2: Scrape LinkedIn
+            log.debug("Step 2: Scraping LinkedIn")
             yield format_sse("status", {"step": 2, "message": "Scraping LinkedIn profile..."})
 
             if linkedin_url:
                 linkedin_data = await scrape_linkedin(linkedin_url)
                 if linkedin_data:
                     context_parts.append(f"## LinkedIn Profile\n{linkedin_data.get('content', '')}")
+                log.info(f"LinkedIn scraped | url={linkedin_url} | success={bool(linkedin_data)}")
                 yield format_sse("status", {"step": 2, "message": "LinkedIn scraped", "complete": True})
             else:
                 yield format_sse("status", {"step": 2, "message": "No LinkedIn URL provided", "skipped": True})
 
             # Step 3: Parse PDF
+            log.debug("Step 3: Processing PDF")
             yield format_sse("status", {"step": 3, "message": "Processing uploaded document..."})
 
             if pdf_file and pdf_file.filename:
@@ -119,11 +135,13 @@ async def research(
                 pdf_content = await parse_pdf(pdf_bytes)
                 if pdf_content:
                     context_parts.append(f"## Uploaded Document\n{truncate_text(pdf_content)}")
+                log.info(f"PDF processed | filename={pdf_file.filename} | chars={len(pdf_content) if pdf_content else 0}")
                 yield format_sse("status", {"step": 3, "message": "Document processed", "complete": True})
             else:
                 yield format_sse("status", {"step": 3, "message": "No document uploaded", "skipped": True})
 
             # Step 4: Fetch news
+            log.debug("Step 4: Fetching news")
             yield format_sse("status", {"step": 4, "message": "Fetching recent news..."})
 
             if effective_company_name:
@@ -134,6 +152,7 @@ async def research(
                         for item in news_data[:5]
                     ])
                     context_parts.append(f"## Recent News\n{news_text}")
+                log.info(f"News fetched | company={effective_company_name} | items={len(news_data) if news_data else 0}")
                 yield format_sse("status", {"step": 4, "message": "News fetched", "complete": True})
             else:
                 yield format_sse("status", {"step": 4, "message": "No company name for news search", "skipped": True})
@@ -144,12 +163,15 @@ async def research(
                 if effective_company_name:
                     context_parts.append(f"Company Name: {effective_company_name}")
                 else:
+                    log.error("No data gathered, cannot proceed")
                     yield format_sse("error", {"message": "No data could be gathered"})
                     return
 
             full_context = "\n\n".join(context_parts)
+            log.info(f"Context built | parts={len(context_parts)} | total_chars={len(full_context)}")
 
             # Step 5: Generate one-pager with Claude
+            log.debug("Step 5: Generating one-pager with Claude")
             yield format_sse("status", {"step": 5, "message": "Generating one-pager with AI..."})
 
             full_response = ""
@@ -158,9 +180,12 @@ async def research(
                 full_response += chunk
                 yield format_sse("chunk", {"text": chunk})
 
+            log.info(f"Synthesis complete | input_tokens={synthesis_result.input_tokens} | output_tokens={synthesis_result.output_tokens} | cost=${synthesis_result.cost:.4f}")
+
             # Parse and validate the response
             try:
                 one_pager = parse_one_pager_response(full_response)
+                log.info("Response parsed successfully")
                 yield format_sse("complete", {
                     "data": one_pager.model_dump(),
                     "tokens": {
@@ -170,7 +195,7 @@ async def research(
                     }
                 })
             except Exception as e:
-                print(f"[Main] Error parsing response: {e}")
+                log.error(f"Failed to parse response: {e}")
                 # Return raw response if parsing fails
                 yield format_sse("complete", {
                     "raw": full_response,
@@ -183,7 +208,7 @@ async def research(
                 })
 
         except Exception as e:
-            print(f"[Main] Error in pipeline: {e}")
+            log.exception(f"Pipeline error: {e}")
             yield format_sse("error", {"message": str(e)})
 
     return StreamingResponse(

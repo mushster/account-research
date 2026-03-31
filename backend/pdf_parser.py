@@ -1,6 +1,10 @@
-"""PDF text extraction using PyMuPDF (stub implementation)."""
+"""PDF text extraction using PyMuPDF."""
 
 from typing import Optional
+
+from logger import get_logger
+
+log = get_logger("pdf_parser")
 
 
 async def parse_pdf(file_bytes: bytes) -> Optional[str]:
@@ -16,6 +20,8 @@ async def parse_pdf(file_bytes: bytes) -> Optional[str]:
     try:
         import fitz  # PyMuPDF
 
+        log.debug(f"Parsing PDF | size={len(file_bytes)} bytes")
+
         # Open PDF from bytes
         doc = fitz.open(stream=file_bytes, filetype="pdf")
 
@@ -29,12 +35,16 @@ async def parse_pdf(file_bytes: bytes) -> Optional[str]:
         doc.close()
 
         if text_content:
-            return "\n\n".join(text_content)
+            result = "\n\n".join(text_content)
+            log.info(f"PDF parsed | pages={len(text_content)} | chars={len(result)}")
+            return result
+
+        log.warning("PDF parsed but no text content found")
         return None
 
     except ImportError:
-        print("[PDF Parser] PyMuPDF not installed, returning None")
+        log.error("PyMuPDF not installed")
         return None
     except Exception as e:
-        print(f"[PDF Parser] Error parsing PDF: {e}")
+        log.exception(f"Error parsing PDF: {e}")
         return None

@@ -7,6 +7,9 @@ from typing import AsyncGenerator
 import anthropic
 
 from models import OnePagerResponse
+from logger import get_logger
+
+log = get_logger("synthesizer")
 
 
 SYSTEM_PROMPT = """You are an expert B2B sales research analyst. Your job is to analyze company information and generate comprehensive sales one-pagers.
@@ -83,7 +86,12 @@ async def synthesize_one_pager(context: str, result: SynthesisResult = None) -> 
     Yields:
         JSON string chunks as they're generated
     """
-    client = anthropic.Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
+    api_key = os.environ.get("ANTHROPIC_API_KEY")
+    if not api_key:
+        log.error("ANTHROPIC_API_KEY not set")
+        raise ValueError("ANTHROPIC_API_KEY environment variable is required")
+
+    client = anthropic.Anthropic(api_key=api_key)
 
     user_message = f"""Based on the following company information, generate a comprehensive sales one-pager.
 
@@ -91,6 +99,8 @@ COMPANY CONTEXT:
 {context}
 
 Generate the JSON response now:"""
+
+    log.debug(f"Starting Claude API call | context_length={len(context)}")
 
     # Use streaming for real-time updates
     with client.messages.stream(
@@ -120,8 +130,7 @@ Generate the JSON response now:"""
         result.output_tokens = output_tokens
         result.cost = total_cost
 
-    print(f"[Synthesizer] Tokens - Input: {input_tokens}, Output: {output_tokens}")
-    print(f"[Synthesizer] Cost: ${total_cost:.4f}")
+    log.info(f"Claude API complete | input_tokens={input_tokens} | output_tokens={output_tokens} | cost=${total_cost:.4f}")
 
 
 def parse_one_pager_response(json_str: str) -> OnePagerResponse:
@@ -143,6 +152,8 @@ def parse_one_pager_response(json_str: str) -> OnePagerResponse:
     if cleaned.endswith("```"):
         cleaned = cleaned[:-3]
     cleaned = cleaned.strip()
+
+    log.debug(f"Parsing JSON response | length={len(cleaned)}")
 
     data = json.loads(cleaned)
     return OnePagerResponse(**data)

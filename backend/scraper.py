@@ -1,7 +1,11 @@
-"""Web and LinkedIn scraping via Firecrawl (stub implementation)."""
+"""Web and LinkedIn scraping via Firecrawl."""
 
 import os
 from typing import Optional
+
+from logger import get_logger
+
+log = get_logger("scraper")
 
 
 async def scrape_website(url: str) -> Optional[dict]:
@@ -17,26 +21,44 @@ async def scrape_website(url: str) -> Optional[dict]:
     api_key = os.environ.get("FIRECRAWL_API_KEY")
 
     if not api_key:
-        print("[Scraper] FIRECRAWL_API_KEY not set, returning mock data")
-        return {
-            "url": url,
-            "title": "Company Website",
-            "content": f"Scraped content from {url} would appear here.",
-            "metadata": {}
-        }
+        log.warning("FIRECRAWL_API_KEY not set, cannot scrape website")
+        return None
 
-    # TODO: Implement actual Firecrawl integration
-    # from firecrawl import FirecrawlApp
-    # app = FirecrawlApp(api_key=api_key)
-    # result = app.scrape_url(url, params={'formats': ['markdown']})
-    # return result
+    try:
+        from firecrawl import FirecrawlApp
 
-    return {
-        "url": url,
-        "title": "Company Website",
-        "content": f"Scraped content from {url} would appear here.",
-        "metadata": {}
-    }
+        log.info(f"Scraping website | url={url}")
+        app = FirecrawlApp(api_key=api_key)
+
+        # Scrape the URL and get markdown content
+        result = app.scrape_url(url, params={
+            'formats': ['markdown'],
+            'onlyMainContent': True
+        })
+
+        if result and result.get('markdown'):
+            content = result.get('markdown', '')
+            metadata = result.get('metadata', {})
+            title = metadata.get('title', 'Company Website')
+
+            log.info(f"Website scraped | url={url} | chars={len(content)} | title={title}")
+
+            return {
+                "url": url,
+                "title": title,
+                "content": content,
+                "metadata": metadata
+            }
+        else:
+            log.warning(f"No content returned from Firecrawl | url={url}")
+            return None
+
+    except ImportError:
+        log.error("firecrawl-py not installed")
+        return None
+    except Exception as e:
+        log.exception(f"Error scraping website: {e}")
+        return None
 
 
 async def scrape_linkedin(url: str) -> Optional[dict]:
@@ -52,20 +74,41 @@ async def scrape_linkedin(url: str) -> Optional[dict]:
     api_key = os.environ.get("FIRECRAWL_API_KEY")
 
     if not api_key:
-        print("[Scraper] FIRECRAWL_API_KEY not set, returning mock data")
-        return {
-            "url": url,
-            "title": "LinkedIn Profile",
-            "content": f"LinkedIn profile content from {url} would appear here.",
-            "metadata": {}
-        }
+        log.warning("FIRECRAWL_API_KEY not set, cannot scrape LinkedIn")
+        return None
 
-    # TODO: Implement actual Firecrawl integration for LinkedIn
-    # Note: LinkedIn scraping may require special handling
+    try:
+        from firecrawl import FirecrawlApp
 
-    return {
-        "url": url,
-        "title": "LinkedIn Profile",
-        "content": f"LinkedIn profile content from {url} would appear here.",
-        "metadata": {}
-    }
+        log.info(f"Scraping LinkedIn | url={url}")
+        app = FirecrawlApp(api_key=api_key)
+
+        # Scrape LinkedIn profile
+        result = app.scrape_url(url, params={
+            'formats': ['markdown'],
+            'onlyMainContent': True
+        })
+
+        if result and result.get('markdown'):
+            content = result.get('markdown', '')
+            metadata = result.get('metadata', {})
+            title = metadata.get('title', 'LinkedIn Profile')
+
+            log.info(f"LinkedIn scraped | url={url} | chars={len(content)} | title={title}")
+
+            return {
+                "url": url,
+                "title": title,
+                "content": content,
+                "metadata": metadata
+            }
+        else:
+            log.warning(f"No content returned from Firecrawl | url={url}")
+            return None
+
+    except ImportError:
+        log.error("firecrawl-py not installed")
+        return None
+    except Exception as e:
+        log.exception(f"Error scraping LinkedIn: {e}")
+        return None

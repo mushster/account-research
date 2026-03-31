@@ -3,6 +3,10 @@
 import os
 from typing import Optional
 
+from logger import get_logger
+
+log = get_logger("enrichment")
+
 
 async def fetch_news(company_name: str) -> Optional[list[dict]]:
     """
@@ -17,7 +21,7 @@ async def fetch_news(company_name: str) -> Optional[list[dict]]:
     api_key = os.environ.get("TAVILY_API_KEY")
 
     if not api_key:
-        print("[Enrichment] TAVILY_API_KEY not set, returning mock data")
+        log.warning("TAVILY_API_KEY not set, using mock data")
         return [
             {
                 "title": f"Recent news about {company_name}",
@@ -37,6 +41,7 @@ async def fetch_news(company_name: str) -> Optional[list[dict]]:
     # )
     # return response.get("results", [])
 
+    log.info(f"Fetching news | company={company_name}")
     return [
         {
             "title": f"Recent news about {company_name}",

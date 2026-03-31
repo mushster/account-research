@@ -1,8 +1,12 @@
-"""Utility functions for validation and logging."""
+"""Utility functions for validation and cost tracking."""
 
 import re
 from typing import Optional
 from urllib.parse import urlparse
+
+from logger import get_logger
+
+log = get_logger("utils")
 
 
 def validate_url(url: str) -> bool:
@@ -103,7 +107,7 @@ def log_cost(input_tokens: int, output_tokens: int, model: str = "claude-sonnet-
         "model": model
     }
 
-    print(f"[Cost] {model}: {input_tokens} in / {output_tokens} out = ${total_cost:.4f}")
+    log.info(f"API cost | model={model} | input_tokens={input_tokens} | output_tokens={output_tokens} | cost=${total_cost:.4f}")
 
     return cost_info
 
@@ -128,4 +132,5 @@ def truncate_text(text: str, max_length: int = 10000) -> str:
     if last_space > max_length * 0.8:
         truncated = truncated[:last_space]
 
+    log.debug(f"Text truncated | original={len(text)} | truncated={len(truncated)}")
     return truncated + "... [truncated]"
